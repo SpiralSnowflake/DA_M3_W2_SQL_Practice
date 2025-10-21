@@ -16,6 +16,11 @@ GROUP BY order_id;
 SELECT order_id, COUNT(product_id) AS total_items
 FROM order_items where order_id in (SELECT order_id FROM orders WHERE status= 'paid')
 GROUP BY order_id;
+
+-- not PAID orders
+SELECT order_id, COUNT(product_id) AS total_items
+FROM order_items where order_id not in (SELECT order_id FROM orders WHERE status= 'paid')
+GROUP BY order_id;
 -- ====================================================================================================================
 
 -- Q3) How many orders were placed per day (all statuses)?
@@ -35,8 +40,10 @@ WHERE order_id IN (SELECT order_id FROM orders WHERE status = 'PAID');  -- filte
 SELECT order_id, COUNT(*) AS item_count FROM order_items 
 WHERE order_id IN (SELECT order_id FROM orders WHERE status = 'PAID') GROUP BY order_id; -- get item counts
 -- Final query
-SELECT ROUND(AVG(item_count)) FROM (SELECT order_id, COUNT(*) AS item_count FROM order_items 
-WHERE order_id IN (SELECT order_id FROM orders WHERE status = 'PAID') GROUP BY order_id)AS per_order_count; -- get avg of paid filtered items
+SELECT ROUND(AVG(item_count)) 
+FROM (SELECT order_id, COUNT(*) AS item_count FROM order_items 
+		WHERE order_id IN (SELECT order_id FROM orders WHERE status = 'PAID') 
+		GROUP BY order_id) AS per_order_count; -- get avg of paid filtered items
 SHOW ERRORS;
 --- 2
 -- ====================================================================================================================
@@ -63,10 +70,10 @@ order by total_units_paid desc ;
 
 -- Q7) For each store, how many UNIQUE customers have placed a PAID order?
 --     Return (store_id, unique_customers) using only the orders table.
-SELECT * FROM orders order by store_id;
 
 SELECT store_id, COUNT(DISTINCT customer_id) AS unique_customers
 FROM orders 
+WHERE status = 'paid'
 GROUP BY store_id
 ORDER BY store_id;
 -- ====================================================================================================================
@@ -76,10 +83,20 @@ ORDER BY store_id;
 
 SELECT DAYNAME(order_datetime) AS day_name, COUNT(order_id) AS orders_count
 FROM orders
-WHERE order_id IN (SELECT order_id FROM orders WHERE status = 'PAID')
+WHERE status = 'PAID'
 GROUP BY day_name
-order by COUNT(order_id) desc ; -- DAYNAME(order_datetime);
--- Tuesday
+order by orders_count desc
+LIMIT 1 ; -- DAYNAME(order_datetime);
+
+-- using CTE
+WITH days_of_week_highest_paid AS
+(SELECT DAYNAME(order_datetime) AS day_name, COUNT(order_id) AS orders_count
+FROM orders
+WHERE status = 'PAID'
+GROUP BY day_name )
+SELECT * FROM days_of_week_highest_paid
+WHERE orders_count = (SELECT MAX(orders_count) FROM days_of_week_highest_paid);
+SHOW ERRORS;
 -- ====================================================================================================================
 
 -- Q9) Show the calendar days whose total orders (any status) exceed 3.
@@ -117,6 +134,7 @@ SELECT order_id FROM orders WHERE status = 'PAID' AND payment_method LIKE '%app%
 SELECT payment_method, count(*) FROM orders where  status = 'PAID'
 group by payment_method ;
 SHOW ERRORS;
+
 -- ====================================================================================================================
 
 -- Q12) Busiest hour: for PAID orders, show (hour_of_day, orders_count) sorted desc.
